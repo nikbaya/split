@@ -6,8 +6,11 @@ Used for running GWAS on split datasets.
 
 ### Preprocessing:
 Submit a job with the three preprocess function calls at the bottom of the script uncommented. 
+<br>
 If the job gets stuck, try submitting jobs with only one preprocess function call uncommented at a time. 
+<br>
 If jobs with only one uncommented preprocess function call still don't work, try increasing the number of workers (may need to go up to 100 workers). 
+<br>
 Below I show how I would submit jobs with only one preprocess function call uncommented.
 
 ##### preprocess1
@@ -16,7 +19,8 @@ Below I show how I would submit jobs with only one preprocess function call unco
 	cluster start ${clustername} --num-workers 20 --num-preemptible-workers 100 --max-idle 10m
 	cluster submit ${clustername} meta_split.py --args "--phen ${phen} --n_chunks ${n_chunks} --batch ${batch} --variant_set ${variant_set}"
 
-read code for descriptions of each argument passed to the script
+read code for descriptions of each argument passed to the script 
+<br>
 if the job takes too long or seems to be stuck, try restarting the cluster and setting num-preemptibleworkers to 0 and increasing num-workers to a higher number (up to 100)
 
 
@@ -33,6 +37,7 @@ if the job takes too long or seems to be stuck, try restarting the cluster and s
 	cluster submit ${clustername} meta_split.py --args "--phen ${phen} --n_chunks ${n_chunks} --batch ${batch} --variant_set ${variant_set}"
 
 *NOTE: DO NOT USE PREEMPTIBLE WORKERS FOR THIS STEP*
+<br>
 You may find that you will need to increase num-workers to 100 if the job gets stuck
 
 <br>
@@ -55,7 +60,9 @@ Takes about 1 hour to finish using 20 n1-standard-8 workers
 	cluster submit ${clustername} meta_split.py --args "--phen ${phen} --n_chunks ${n_chunks} --batch ${batch} --variant_set ${variant_set}"
 
 Takes 40 n1-standard-8 workers about 5 hours. Takes 20 n1-standard-8 workers slightly more than 8 hours. 
+<br>
 You can try playing around with the number of workers to suit your needs. Typically, fewer workers takes longer but are more cost-effective. 
+<br>
 However, I generally wouldn't recommend using fewer than 20 workers because this may cause the job to become stuck.
 
 
@@ -79,6 +86,7 @@ Substitute this script for the last step in the meta-analysis/split pipeline. It
 	done
 
 *NOTE: Wait for the clusters to all be running before proceeding to the next step*
+<br>
 *NOTE: However, don't let the clusters sit idle for more than 10 minutes because they will automatically be deleted*
 
 ###### (Step 2): Submit tasks using parallel for-loop
