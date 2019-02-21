@@ -1,13 +1,13 @@
 # split
 Used for running GWAS on split datasets.
-
+<br>
 # Meta-analysis/split pipeline cloud submission instructions
 
 #### –––––––––––– Preprocessing: ––––––––––––
-# Submit a job with the three preprocess function calls at the bottom of the script uncommented. 
-# If the job gets stuck, try submitting jobs with only one preprocess function call uncommented at a time. 
-# If jobs with only one uncommented preprocess function call still don't work, try increasing the number of workers (may need to go up to 100 workers). 
-# Below I show how I would submit jobs with only one preprocess function call uncommented.
+Submit a job with the three preprocess function calls at the bottom of the script uncommented. 
+If the job gets stuck, try submitting jobs with only one preprocess function call uncommented at a time. 
+If jobs with only one uncommented preprocess function call still don't work, try increasing the number of workers (may need to go up to 100 workers). 
+Below I show how I would submit jobs with only one preprocess function call uncommented.
 
 ##### –––––– preprocess1 (only uncomment preprocess1 at the bottom of the script meta_split.py) ––––––
 
