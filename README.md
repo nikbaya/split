@@ -1,22 +1,23 @@
 # split
 Used for running GWAS on split datasets.
 <br>
-# Meta-analysis/split pipeline cloud submission instructions
 
-#### –––––––––––– Preprocessing: ––––––––––––
+## Chunking/Meta-analysis instructions
+
+#### Preprocessing:
 Submit a job with the three preprocess function calls at the bottom of the script uncommented. 
 If the job gets stuck, try submitting jobs with only one preprocess function call uncommented at a time. 
 If jobs with only one uncommented preprocess function call still don't work, try increasing the number of workers (may need to go up to 100 workers). 
 Below I show how I would submit jobs with only one preprocess function call uncommented.
 
-##### –––––– preprocess1 (only uncomment preprocess1 at the bottom of the script meta_split.py) ––––––
+##### preprocess1
 
-cd ${directory containing meta_split.py}
-cluster start ${clustername} --num-workers 20 --num-preemptible-workers 100 --max-idle 10m
-cluster submit ${clustername} meta_split.py --args "--phen ${phen} --n_chunks ${n_chunks} --batch ${batch} --variant_set ${variant_set}"
+	cd ${directory containing meta_split.py}
+	cluster start ${clustername} --num-workers 20 --num-preemptible-workers 100 --max-idle 10m
+	cluster submit ${clustername} meta_split.py --args "--phen ${phen} --n_chunks ${n_chunks} --batch ${batch} --variant_set ${variant_set}"
 
-# read code for descriptions of each argument passed to the script
-# if the job takes too long or seems to be stuck, try restarting the cluster and setting num-preemptibleworkers to 0 and increasing num-workers to a higher number (up to 100)
+read code for descriptions of each argument passed to the script
+if the job takes too long or seems to be stuck, try restarting the cluster and setting num-preemptibleworkers to 0 and increasing num-workers to a higher number (up to 100)
 
 
 #–––––– preprocess2 (only uncomment preprocess2 at the bottom of the script meta_split.py) ––––––
@@ -24,7 +25,7 @@ cluster submit ${clustername} meta_split.py --args "--phen ${phen} --n_chunks ${
 cluster start ${clustername} --num-workers 20 --num-preemptible-workers 100 --max-idle 10m
 cluster submit ${clustername} meta_split.py --args "--phen ${phen} --n_chunks ${n_chunks} --batch ${batch} --variant_set ${variant_set}"
 
-# if the job takes too long or seems to be stuck, try restarting the cluster and setting num-preemptibleworkers to 0 and increasing num-workers to a higher number (up to 100)
+if the job takes too long or seems to be stuck, try restarting the cluster and setting num-preemptibleworkers to 0 and increasing num-workers to a higher number (up to 100)
 
 #–––––– preprocess3 (only uncomment preprocess3 at the bottom of the script meta_split.py) ––––––
 
