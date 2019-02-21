@@ -1,7 +1,3 @@
-# split
-Used for running GWAS on split datasets.
-<br>
-
 ## Chunking/Meta-analysis instructions
 
 ### Preprocessing:
@@ -36,7 +32,7 @@ if the job takes too long or seems to be stuck, try restarting the cluster and s
 	cluster start ${clustername} --num-workers 50
 	cluster submit ${clustername} meta_split.py --args "--phen ${phen} --n_chunks ${n_chunks} --batch ${batch} --variant_set ${variant_set}"
 
-*NOTE: DO NOT USE PREEMPTIBLE WORKERS FOR THIS STEP*
+**NOTE: DO NOT USE PREEMPTIBLE WORKERS FOR THIS STEP**
 <br>
 You may find that you will need to increase num-workers to 100 if the job gets stuck
 
@@ -71,7 +67,7 @@ However, I generally wouldn't recommend using fewer than 20 workers because this
 	cluster start ${clustername} --num-workers 2 --max-idle 10m
 	cluster submit ${clustername} meta_split.py --args "--phen ${phen} --n_chunks ${n_chunks} --batch ${batch} --variant_set ${variant_set}"
 
-*NOTE: I would recommend using meta_split_parallel.py instead of this last function. It will be much faster because the meta-analysis of the permutations can be hard parallelized over clusters without an increase in cost.*
+**NOTE: I would recommend using meta_split_parallel.py instead of this last function. It will be much faster because the meta-analysis of the permutations can be hard parallelized over clusters without an increase in cost.**
 
 
 
@@ -87,9 +83,9 @@ Substitute this script for the last step in the meta-analysis/split pipeline. It
 		cluster start ${clusterprefix}-$i --max-idle 10m &
 	done
 
-*NOTE: Wait for the clusters to all be running before proceeding to the next step*
+**NOTE: Wait for the clusters to all be running before proceeding to the next step**
 <br>
-*NOTE: However, don't let the clusters sit idle for more than 10 minutes because they will automatically be deleted*
+**NOTE: However, don't let the clusters sit idle for more than 10 minutes because they will automatically be deleted**
 
 ###### (Step 2): Submit tasks using parallel for-loop
 
