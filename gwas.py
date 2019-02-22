@@ -42,7 +42,7 @@ def gwas(mt, x, y, cov_list=[], with_intercept=True, normalize_x=True, pass_thro
         mt = mt.annotate_entries(x = mt.__norm_gt).drop('__norm_gt')
     
     if is_std_cov_list:
-        cov_list = ['is_female','age','age_squared','age_is_female',
+        cov_list = ['isFemale','age','age_squared','age_isFemale',
                     'age_squared_isFemale']+['PC{:}'.format(i) for i in range(1, 21)]
         
     if str in list(map(lambda x: type(x),cov_list)):
