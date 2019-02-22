@@ -29,7 +29,7 @@ def gwas(mt, x, y, cov_list=[], with_intercept=True, normalize_x=True, pass_thro
     header += 'Covariates list: {}\n'.format(cov_list if not is_std_cov_list else 'Standard 26 covariates')
     header += 'With intercept: {}\n'.format(with_intercept)
     header += 'Normalizing X: {}\n'.format(normalize_x)
-    header += '' if pass_through is [] else 'Variables to pass through: {}\n'.format(with_intercept)
+    header += '' if pass_through is [] else 'Variables to pass through: {}\n'.format(pass_through)
     header += '' if path_to_save is None else 'Saving to: {}\n'.format(path_to_save)
     header += '****************************************'
     print(header)
