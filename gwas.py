@@ -33,7 +33,6 @@ def gwas(mt, x, y, cov_list=[], with_intercept=True, pass_through=[], path_to_sa
     
     ss_template = hl.read_table('gs://nbaya/rg_sex/hm3.sumstats_template.ht') # sumstats template as a hail table
     ss_template = ss_template.key_by('SNP')
-    ss_template = ss_template.annotate(N = n_samples)
         
     ss = ss_template.annotate(Z = gwas_ht[ss_template.SNP].Z,
                               N = gwas_ht[ss_template.SNP].N)
