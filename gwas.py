@@ -31,8 +31,9 @@ def gwas(mt, x, y, cov_list=[], with_intercept=True, pass_through=[], path_to_sa
     gwas_ht = gwas_ht.select(Z = gwas_ht.t_stat,
                              N = gwas_ht.n)
     
-    sumstats_template = hl.import_table('gs://nbaya/rg_sex/50_snps_alleles_N.tsv.gz',types={'N': hl.tint64})
+    sumstats_template = hl.read_table('gs://nbaya/rg_sex/hm3.sumstats_template.ht')
     sumstats_template = sumstats_template.key_by('SNP')
+    sumstats_template = sumstats_template.annotate(N = n_samples)
         
     sumstats = sumstats_template.annotate(Z = gwas_ht[sumstats_template.SNP].Z,
                                           N = gwas_ht[sumstats_template.SNP].N)
