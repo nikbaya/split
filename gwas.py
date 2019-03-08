@@ -1,12 +1,13 @@
 def gwas(mt, x, y, cov_list=[], with_intercept=True, pass_through=[], path_to_save=None, 
-         normalize_x=True, is_std_cov_list=False):
+         normalize_x=False, is_std_cov_list=False):
     '''Runs GWAS'''
     
-    mt = mt._annotate_all(col_exprs={'y':y},
-                           entry_exprs={'x':x})
+    mt = mt._annotate_all(col_exprs={'__y':y},
+                           entry_exprs={'__x':x})
     if normalize_x:
-        mt = normalize_genotypes(mt, mt.x) 
-        mt = mt.annotate_entries(x = mt.__norm_gt).drop('__norm_gt')
+        mt = mt.annotate_rows(__gt_stats = hl.agg.stats(mt.__x))
+        mt = mt.annotate_entries(__x= (mt.__x-mt.__gt_stats.mean)/mt.__gt_stats.stdev) 
+        mt = mt.drop('__gt_stats')
     
     if is_std_cov_list:
         cov_list = ['isFemale','age','age_squared','age_isFemale',
@@ -19,8 +20,8 @@ def gwas(mt, x, y, cov_list=[], with_intercept=True, pass_through=[], path_to_sa
     
     print(pass_through)
 
-    gwas_ht = hl.linear_regression_rows(y=mt.y,
-                                        x=mt.x,
+    gwas_ht = hl.linear_regression_rows(y=mt.__y,
+                                        x=mt.__x,
                                         covariates=cov_list,
                                         pass_through = ['rsid']+pass_through)
     
