@@ -18,7 +18,7 @@ def gwas(mt, x, y, cov_list=[], with_intercept=True, pass_through=[], path_to_sa
         
     cov_list = ([1] if with_intercept else [])+cov_list
     
-    print(pass_through)
+    print(f'pass through: {pass_through}')
 
     gwas_ht = hl.linear_regression_rows(y=mt.__y,
                                         x=mt.__x,
