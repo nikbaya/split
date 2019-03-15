@@ -412,7 +412,7 @@ all_filenames = ['ukbb31063.rg_sex.50.batch_1.tsv.gz', 'ukbb31063.rg_sex.20160.b
              'ukbb31063.rg_sex.23107.batch_1.tsv.gz', 'ukbb31063.rg_sex.6138_100.batch_1.tsv.gz',
              'ukbb31063.rg_sex.hm3.50_sim_inf.nchunks300.batch_1'+('.no_intercept' if no_intercept else '')+('.int_gcov_0' if no_gcov_int else '')+'.tsv.gz', 'ukbb31063.rg_sex.50_sim_inf.n150.batch_1.tsv.gz',
              'ukbb31063.rg_sex.50_sim_inf_h2_0.1.n300.batch_1.tsv.gz','ukbb31063.rg_sex.50_raw_res.n300.batch_1.tsv.gz',
-             'ukbb31063.rg_sex.qc_pos.50_sim_inf.n300.batch_1.tsv.gz']
+             'ukbb31063.rg_sex.qc_pos.50_sim_inf.n300.batch_1.tsv.gz','gcta_20k.rg.tsv.bgz']
 #origpheno_filenames = ['ukbb31063.rg_sex.50.batch_1.tsv.gz', 'ukbb31063.rg_sex.20160.batch_1.tsv.gz',
 #             'ukbb31063.rg_sex.30100.batch_1.tsv.gz', 'ukbb31063.rg_sex.2443.batch_1.tsv.gz',
 #             'ukbb31063.rg_sex.23107.batch_1.tsv.gz', 'ukbb31063.rg_sex.6138_100.batch_1.tsv.gz']
@@ -425,11 +425,19 @@ for filename in filenames:
         os.system('gsutil cp '+cloud_wd+filename+' '+wd)
 rg_df =  pd.read_csv(wd+filenames[0],sep='\t',compression='gzip').sort_values(by='p1').reset_index(drop=True)
 for i in range(1,len(filenames)):
-   temp = pd.read_csv(wd+filenames[i],sep='\t',compression='gzip').sort_values(by='p1').reset_index(drop=True)
-   rg_df = rg_df.append(temp)
+    if '20k' in filenames[i]:
+        temp = pd.read_csv(wd+filenames[i],sep='\t',compression='gzip').rename(
+                index=str,columns={'rg_SE':'se','rep_id':'phenotype','n':'ph1_n'}).reset_index(drop=True)
+        temp['p1'] = 'gcta_20k_'+temp['phenotype'].astype(str)+'A'
+        temp['p2'] = 'gcta_20k_'+temp['phenotype'].astype(str)+'B'
+        temp['z'] = temp['rg']/temp['se']
+        temp['ph2_n'] = temp['ph1_n']
+        temp = temp.drop(columns=temp.columns.values[1:-8])
+    else:
+        temp = pd.read_csv(wd+filenames[i],sep='\t',compression='gzip').sort_values(by='p1').reset_index(drop=True)
+    rg_df = rg_df.append(temp)
 rg_df.loc[:,'z_not_1'] = (rg_df.loc[:,'rg']-1)/rg_df.loc[:,'se']
 
-#Plot kde plots for all phenotypes
 phen_ids = {#'20160':'20160',
             '50_meta_A_batch':'50_irnt',
 #            '50_meta_A_n150':'50 n150',
@@ -443,30 +451,32 @@ phen_ids = {#'20160':'20160',
 #            '50_sim_inf_meta_A_n150':'Inf. model, n150',
 #            'inf_h2_0.1':'Inf. model, h2=0.1',
 #            '50_raw_res':'50_raw_res',
-#            'qc_pos_50':'Inf. model with QC variants'
+#            'qc_pos_50':'Inf. model with QC variants',
+            'gcta_20k':'gcta_20k'
             }
 
-phen_ids_labels = {#'20160':'20160',
+phen_ids_labels = {'20160':'20160',
             '50_meta_A_batch':'Height (50_irnt)',
-#            '50_meta_A_n150':'50 n150',
-#            '50_raw_meta':'50_raw',
-#            '30100':'30100',
-#            '2443':'2443',
-#            '23107':'23107',
-#            '6138_100':'6138_100',
+            '50_meta_A_n150':'50 n150',
+            '50_raw_meta':'50_raw',
+            '30100':'30100',
+            '2443':'2443',
+            '23107':'23107',
+            '6138_100':'6138_100',
 #            'meta':'All phens',
             'hm3_50_sim_inf_meta_A_n300':'Inf. model, n300',
-#            '50_sim_inf_meta_A_n150':'Inf. model, n150',
-#            'inf_h2_0.1':'Inf. model, h2=0.1',
-#            '50_raw_res':'50_raw_res',
-#            'qc_pos_50':'Inf. model with QC+ variants'
+            '50_sim_inf_meta_A_n150':'Inf. model, n150',
+            'inf_h2_0.1':'Inf. model, h2=0.1',
+            '50_raw_res':'50_raw_res',
+            'qc_pos_50':'Inf. model with QC+ variants',
+            'gcta_20k':'gcta_20k'
             }
 
 col='rg'
 for phen_id, desc in phen_ids.items():
     rg_df.loc[rg_df.p1.str.contains(phen_id),'description'] = desc
 
-#### Code for generating violin plot for poster ####
+###### Code for generating violin plot for poster ######
 rg_df_temp = rg_df[rg_df['description'].isin(list(phen_ids.values()))].iloc[:,0:20].append(rg_split_temp)
 rg_df_temp['method'] = 'conventional'
 rg_df_temp.loc[rg_df_temp.p1.str.contains('meta'),'method'] = 'meta-analysis'
@@ -490,7 +500,7 @@ fig = plt.gcf()
 fig.set_size_inches(6, 4)
 ####
 
-# Code for generating kde plots for all selected phenotypes
+###### Code for generating kde plots for all selected phenotypes ######
 col='rg'
 for phen_id, desc in phen_ids.items():
 #    print(rg_df[(rg_df.p1.str.contains(phen_id))][col].shape)
@@ -547,7 +557,7 @@ fig.set_size_inches(6, 4)
 fig.savefig('/Users/nbaya/Desktop/meta_split_height_h2_int.png',dpi=300)
 
 
-#Print statistics
+###### Print statistics ######
 col='rg'
 for phen_id, desc in phen_ids.items():
     print(desc+' Mean: '+str(np.mean(rg_df[rg_df.p1.str.contains(phen_id)][col])))
@@ -557,22 +567,15 @@ for phen_id, desc in phen_ids.items():
 #    print(desc+' pearson r: '+str(stats.pearsonr(rg_df[rg_df.p1.str.contains(phen_id)]['rg'],rg_df[rg_df.p1.str.contains(phen_id)]['gcov_int'])))
 
 
-#proportion of replicates that have a 95% confidence interval that contains 1
-for phen_id, desc in phen_ids.items():
-    
+###### proportion of replicates that have a 95% confidence interval that contains 1 ######
+for phen_id, desc in phen_ids.items():    
     s = rg_df[rg_df.p1.str.contains(phen_id)][['rg','se']]
     print(phen_id)
+    print(np.mean(abs(s['rg']-1) < 2*s['se']))
+    print('\r')
 #    meta_rg = (np.sum(s['rg']/s['se']**2)/np.sum(1/s['se']**2))
 #    meta_se = (1/np.sum(1/s['se']**2))
 #    sns.kdeplot(np.random.normal(meta_rg, meta_se, 1000000))
-
-    if np.mean(s['rg']) > 1:
-        print(np.mean([x < 1 for x in (s['rg']-2*s['se']).tolist() ]))
-    else:
-        print(np.mean([x > 1 for x in (s['rg']+2*s['se']).tolist() ]))
-    print('\r')
-
-
 
 s = rg_df[rg_df.p1.str.contains('hm3_50_sim_inf_meta_A_n300')]
 s = rg_df[rg_df.p1.str.contains('50_sim_inf_meta_A_n150')]
@@ -581,6 +584,91 @@ sns.kdeplot(s['rg'])
 
 sns.kdeplot(s.ph1_h2_obs)
 sns.kdeplot(s.ph2_h2_obs)
+
+
+###### plot rg vs. rg_se ######
+fig,ax = plt.subplots(figsize=(8,6))
+for phen_id, desc in phen_ids.items():
+    rg_temp = rg_df[rg_df.p1.str.contains(phen_id)]['rg']
+    se_temp = rg_df[rg_df.p1.str.contains(phen_id)]['se']
+    print(f'{desc}\ncorr: {stats.pearsonr(rg_temp,se_temp)[0]}')
+    print(f'p-val: {stats.ttest_1samp(rg_temp,popmean=1)[1]}\n')
+    ax.plot(rg_temp,se_temp,'.')
+plt.legend([value for key, value in phen_ids.items()])
+plt.ylabel('se')
+plt.xlabel('rg')
+plt.title('rg vs rg_se')
+fig.set_size_inches(8,6)
+fig.savefig('/Users/nbaya/Documents/lab/ukbb-sexdiff/rg_sex/plots/rg_vs_rg_se_realphens.png',dpi=600)
+    
+###### plot rg's w/ error bars ####
+rg_df_temp = rg_df
+rg_df_temp['is_used'] = False
+for phen_id, desc in phen_ids.items():
+    rg_df_temp.loc[rg_df_temp.p1.str.contains(phen_id),'is_used'] = True
+rg_df_temp = rg_df_temp[rg_df_temp.is_used==True]
+rg_df_temp = rg_df_temp.reset_index()
+fig,ax = plt.subplots(figsize=(12,12))
+#ax.plot([1,1],[0,rg_df_temp.shape[0]],'k--',alpha=0.5)
+ax.plot([0,0],[0,rg_df_temp.shape[0]],'k--',alpha=0.5)
+for phen_id, desc in phen_ids.items():
+    df_temp = rg_df_temp[rg_df_temp.p1.str.contains(phen_id)]
+#    df_temp = df_temp.sort_values(by='rg')
+    df_temp = df_temp.sort_values(by='z_not_1')
+    min_idx = np.min(df_temp.index.values)
+    df_temp = df_temp.reset_index()
+#    ax.errorbar(df_temp.rg,df_temp.index+min_idx,xerr=2*df_temp.se,fmt='.')
+    ax.errorbar(df_temp.z_not_1,df_temp.index+min_idx,xerr=2,fmt='.')
+#ax.legend(['rg=1']+[value for key, value in phen_ids.items()])
+ax.legend(['rg=1 (z_not_1=0)']+[value for key, value in phen_ids.items()])
+plt.xlabel('rg estimate')
+plt.xlabel('z_not_1')
+plt.ylabel('replicates')
+#plt.xlim([0.9,1.1])
+plt.tick_params(
+    axis='y',          # changes apply to the x-axis
+    which='both',      # both major and minor ticks are affected
+    left=False,      # ticks along the bottom edge are off
+    right=False,         # ticks along the top edge are off
+    labelleft=False) # labels along the bottom edge are off
+plt.title('rg estimate')
+plt.title('z_not_1')
+#plt.tight_layout()
+fig = plt.gcf()
+#fig.set_size_inches(12,9)
+fig.savefig('/Users/nbaya/Documents/lab/ukbb-sexdiff/rg_sex/plots/test.png',dpi=400)
+
+################################################################################
+'''
+Code for reading GCTA 20k results
+'''
+df = pd.read_csv('/Users/nbaya/Documents/lab/ukbb-sexdiff/rg_sex/gcta_20k.rg.tsv.bgz',delimiter='\t',compression='gzip')
+ct = 0
+for i in range(df.shape[0]):
+    if not abs(df.rg[i]-1) < 2*df.rg_SE[i]:
+        print(f'rg: {df.rg[i]}, se: {df.rg_SE[i]}')
+        ct += 1
+print(f'Proportion of rg estimates w/ 95% CI not containing 1: {ct/df.shape[0]}')
+
+df = df.sort_values(by='rg')
+fig,ax = plt.subplots(figsize=(8,8))
+#    plt.plot(range(df.shape[0]),df.rg,'.')
+#    plt.fill_between(range(df.shape[0]),df.rg-2*df.rg_SE,df.rg+2*df.rg_SE,alpha=0.5)
+ax.plot([1,1],[0,df.shape[0]],'k--',alpha=0.5)
+ax.errorbar(df.rg,range(df.shape[0]),xerr=2*df.rg_SE,fmt='.')
+ax.legend(['rg=1 reference','rg estimates (95% CI)'])
+plt.xlabel('rg estimate')
+plt.ylabel('replicates')
+plt.tick_params(
+    axis='y',          # changes apply to the x-axis
+    which='both',      # both major and minor ticks are affected
+    left=False,      # ticks along the bottom edge are off
+    right=False,         # ticks along the top edge are off
+    labelleft=False) # labels along the bottom edge are off
+plt.title('gcta rg estimates')
+fig = plt.gcf()
+fig.set_size_inches(8,8)
+fig.savefig('/Users/nbaya/Documents/lab/ukbb-sexdiff/rg_sex/plots/gcta_rg_estimates.png',dpi=600)
 
 ###############################################################################
 """
@@ -1768,7 +1856,7 @@ phendict = {       '50':['50',               300, True,  True,  True, float('NaN
 
 def geth2batches(phenkey, phendict):
     cloud_wd = 'gs://nbaya/split/meta_split/h2part/'
-    wd = '/Users/nbaya/Documents/lab/ukbb-sexdiff/h2part/'
+    wd = '/Users/nbaya/Documents/lab/ukbb-sexdiff/h2part/downsample/'
     phen = phendict[phenkey][0]
     n_chunks = phendict[phenkey][1]
     hasbatch1 = phendict[phenkey][2]
