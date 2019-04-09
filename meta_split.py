@@ -30,6 +30,7 @@ parser.add_argument('--phen', type=str, required=True, help="phenotype code (e.g
 parser.add_argument('--n_chunks', type=int, required=True, help="number of subgroups (or 'chunks'). Default: 300")
 parser.add_argument('--batch', type=str, required=True, help="batch number for reproducibility of stochastic steps (used as seed number). Default: 1")
 parser.add_argument('--variant_set', type=str, required=True, help="set of variants to use")
+parser.add_argument('--constant_sex_ratio', type=int, required=True, help="whether to keep constant sex ratio in chunks")
 
 args = parser.parse_args()
 
@@ -118,7 +119,7 @@ IMPORTANT: First differentiation by phenotype, batch, and n_chunks
 Takes ~1h with 20 workers if writing matrix table. Otherwise it takes 2 min with
 20 workers to write out the table.
 """
-def get_phen_mt(variant_set,phen,batch,n_chunks,write):
+def get_phen_mt(variant_set,phen,batch,n_chunks,constant_sex_ratio,write):
     print('Starting Part 2: Splitting into n groups')
     print('Time: {:%H:%M:%S (%Y-%b-%d)}'.format(datetime.datetime.now()))
     
@@ -145,7 +146,8 @@ def get_phen_mt(variant_set,phen,batch,n_chunks,write):
         else:
             phen_tb0 = hl.import_table('gs://phenotype_31063/ukb31063.phesant_phenotypes.both_sexes.tsv.bgz',
                                           missing='',impute=True,types={'"userId"': hl.tstr}).rename({ '"userId"': 's', '"'+phen+'"': 'phen'})
-    
+            phen_tb0 = phen_tb0.key_by('s')
+
         phen_tb = phen_tb0.select(phen_tb0['phen'])    
 
     mt1 = mt0.annotate_cols(phen_str = hl.str(phen_tb[mt0.s]['phen']).replace('\"',''))
@@ -161,24 +163,45 @@ def get_phen_mt(variant_set,phen,batch,n_chunks,write):
     withdrawn_set = set(withdrawn.f0.take(withdrawn.count()))
     mt1 = mt1.filter_cols(hl.literal(withdrawn_set).contains(mt1['s']),keep=False) 
     mt1 = mt1.key_cols_by('s')
-
-    n_samples = mt1.count_cols()
-    print('\n>>> N samples = '+str(n_samples)+' <<<') #expect n samples to match n_non_missing from phenotypes.both_sexes.tsv, minus withdrawn samples.
     
-    mt2 = mt1.add_col_index()
-    group_size = int(n_samples/n_chunks)+1     #the ideal number of samples in each group
-    #list of group ids to be paired to each sample (Note: length of group_ids > # of cols in mt, but it doesn't affect the result)
-    group_ids = np.ndarray.tolist(np.ndarray.flatten(np.asarray([range(n_chunks)]*group_size))) 
-    group_ids = group_ids[0:n_samples]
-    randstate = np.random.RandomState(int(batch)) #seed with batch number
-    randstate.shuffle(group_ids)
-    mt3 = mt2.annotate_cols(group_id = hl.literal(group_ids)[hl.int32(mt2.col_idx)]) #assign group ids # OLD VERSION
+    if constant_sex_ratio:
+        mt_ls = [mt1.filter_cols(mt1.isFemale==0), mt1.filter_cols(mt1.isFemale==1)]
+        mt_final = []
+        for mt_temp in mt_ls:
+            n_samples = mt_temp.count_cols()
+            print('\n>>> N samples = '+str(n_samples)+' <<<') #expect n samples to match n_non_missing from phenotypes.both_sexes.tsv, minus withdrawn samples.
+            
+            mt_temp2 = mt_temp.add_col_index()
+            group_size = int(n_samples/n_chunks)+1     #the ideal number of samples in each group
+            #list of group ids to be paired to each sample (Note: length of group_ids > # of cols in mt, but it doesn't affect the result)
+            group_ids = np.ndarray.tolist(np.ndarray.flatten(np.asarray([range(n_chunks)]*group_size))) 
+            group_ids = group_ids[0:n_samples]
+            randstate = np.random.RandomState(int(batch)) #seed with batch number
+            randstate.shuffle(group_ids)
+            mt_final.append(mt_temp2.annotate_cols(group_id = hl.literal(group_ids)[hl.int32(mt_temp2.col_idx)])) #assign group ids # OLD VERSION
+        
+        mt3 = mt_final[0].union_cols(mt_final[1])
+    else:
+        n_samples = mt1.count_cols()
+        print('\n>>> N samples = '+str(n_samples)+' <<<') #expect n samples to match n_non_missing from phenotypes.both_sexes.tsv, minus withdrawn samples.
+        
+        mt2 = mt1.add_col_index()
+        group_size = int(n_samples/n_chunks)+1     #the ideal number of samples in each group
+        #list of group ids to be paired to each sample (Note: length of group_ids > # of cols in mt, but it doesn't affect the result)
+        group_ids = np.ndarray.tolist(np.ndarray.flatten(np.asarray([range(n_chunks)]*group_size))) 
+        group_ids = group_ids[0:n_samples]
+        randstate = np.random.RandomState(int(batch)) #seed with batch number
+        randstate.shuffle(group_ids)
+        mt3 = mt2.annotate_cols(group_id = hl.literal(group_ids)[hl.int32(mt2.col_idx)]) #assign group ids # OLD VERSION
+    
     ht_group_ids = mt3.select_cols(mt3.group_id).cols() #assign group ids
+    
+    print(mt3.aggregate_cols(hl.agg.group_by(mt3.group_id,hl.agg.mean(mt3.isFemale))))
     
     if write:
         print('Writing HailTable with group ids...')
     #    mt3.write('gs://nbaya/split/ukb31063.'+variant_set+'_variants.gwas_samples_'+phen+'_grouped'+str(n_chunks)+'_batch_'+batch+'.mt',overwrite=True) #Takes ~30 min with 50 workers OLD VERSION
-        ht_group_ids.write('gs://nbaya/split/ukb31063.'+variant_set+'_variants.gwas_samples_'+phen+'_grouped'+str(n_chunks)+'_batch_'+batch+'.ht',overwrite=True) 
+        ht_group_ids.write(f'gs://nbaya/split/ukb31063.{variant_set}_variants.gwas_samples_{phen}_grouped{n_chunks}_constantsexratio_{constant_sex_ratio}_batch_{batch}.ht',overwrite=True) 
 
     print('Finished Part 2: Splitting into n groups')
     print('Time: {:%H:%M:%S (%Y-%b-%d)}'.format(datetime.datetime.now())) #takes ~1h with 20 workers, 42 min with 30 workers
@@ -190,11 +213,11 @@ def get_phen_mt(variant_set,phen,batch,n_chunks,write):
 ║ Part 3: Run linear regression for each group ║
 ╚══════════════════════════════════════════════╝
 """
-def metasplit1(variant_set,phen,batch,n_chunks):
+def metasplit1(variant_set,phen,batch,n_chunks,constant_sex_ratio):
     print('Starting Part 3: Linear regression')
     print('Time: {:%H:%M:%S (%Y-%b-%d)}'.format(datetime.datetime.now()))
     
-    mt = get_phen_mt(variant_set,phen,batch,n_chunks,write=False)
+    mt = get_phen_mt(variant_set,phen,batch,n_chunks,constant_sex_ratio,write=False)
     
     mt = mt.rename({'dosage': 'x', 'phen': 'y'})
     
@@ -205,7 +228,7 @@ def metasplit1(variant_set,phen,batch,n_chunks):
             .aggregate(linreg = hl.agg.linreg(y=mt.y, x = [mt.x, 1] + cov_list)))
     
     gmt.select_entries(beta=gmt.linreg.beta[0],standard_error=gmt.linreg.standard_error[0],
-                       beta_int=gmt.linreg.beta[1],standard_error_int=gmt.linreg.standard_error[1]).write('gs://nbaya/split/meta_split/ukb31063.'+variant_set+'_'+phen+'_gmt'+str(n_chunks)+'_batch_'+batch+'.mt',overwrite=True)
+                       beta_int=gmt.linreg.beta[1],standard_error_int=gmt.linreg.standard_error[1]).write(f'gs://nbaya/split/meta_split/ukb31063.{variant_set}_{phen}_gmt{n_chunks}_constantsexratio_{constant_sex_ratio}_batch_{batch}.mt',overwrite=True)
     
     print('Finished Part 4') #Takes 1.7 hours with 10 workers + 200 pre-emptible workers, around 4.5 hours with 50 workers, 4.55 hours with 10 workers + 40 pre-emptible
     print('Time: {:%H:%M:%S (%Y-%b-%d)}'.format(datetime.datetime.now()))
@@ -216,13 +239,14 @@ def metasplit1(variant_set,phen,batch,n_chunks):
 ╚═════════════════════════════════════════════════════════╝
 Split n groups into two populations (A, B) and calculate meta summary statistics (via inverse-variance weighting meta-analysis)
 """
-def metasplit2(variant_set, phen,batch,n_chunks):    
+def metasplit2(variant_set, phen,batch,n_chunks,constant_sex_ratio):    
     print('Starting Part 4: Splitting into populations A and B, calculatng summary statistics')
     print('Time: {:%H:%M:%S (%Y-%b-%d)}'.format(datetime.datetime.now()))
     
     #gmt = hl.read_matrix_table('gs://nbaya/split/meta_split/ukb31063.hm3_'+phen+'_gmt.mt') #old version
     #gmt = hl.read_matrix_table('gs://nbaya/split/meta_split/ukb31063.hm3_'+phen+'_gmt_batch_'+batch+'.mt') #used for n=300, phenotypes 50 and 20160
     gmt = hl.read_matrix_table('gs://nbaya/split/meta_split/ukb31063.'+variant_set+'_'+phen+'_gmt'+str(n_chunks)+'_batch_'+batch+'.mt') #used for n=150 and other phenotypes
+    gmt = hl.read_matrix_table(f'gs://nbaya/split/meta_split/ukb31063.{variant_set}_{phen}_gmt{n_chunks}_constantsexratio_{constant_sex_ratio}_batch_{batch}.mt') #used for n=150 and other phenotypes
     
     gmt = gmt.add_col_index()
     gmt = gmt.rename({'rsid': 'SNP'})
@@ -250,7 +274,7 @@ def metasplit2(variant_set, phen,batch,n_chunks):
         
         ht = ht.drop('A.unnorm_meta_beta','B.unnorm_meta_beta','A.inv_se2','B.inv_se2').key_by('SNP')
         
-        variants = hl.import_table('gs://nbaya/rg_sex/50_snps_alleles_N.tsv.gz',types={'N': hl.tint64})
+        variants = hl.read_table('gs://nbaya/rg_sex/hm3.sumstats_template.ht')
         variants = variants.key_by('SNP')
         mt_all = hl.read_matrix_table('gs://nbaya/split/ukb31063.hm3_variants.gwas_samples_'+phen+'_grouped'+str(n_chunks)+'_batch_'+batch+'.mt') #matrix table containing individual samples
         variants = variants.annotate(N = hl.int32(mt_all.count_cols()/2))
@@ -297,18 +321,20 @@ if __name__ == "__main__":
     batch = args.batch
     n_chunks = args.n_chunks #number of subgroups (or "chunks")
     variant_set = str(args.variant_set)
+    constant_sex_ratio = bool(args.constant_sex_ratio)
     
     print('####################')
-    print('Phenotype: '+phen)
-    print('Description: '+desc)
-    print('Batch: '+batch)
-    print('n chunks: '+str(n_chunks))
-    print('variant set: '+variant_set)
+    print(f'Phenotype: {phen}')
+    print(f'Description: {desc}')
+    print(f'Batch: {batch}')
+    print(f'n chunks: {n_chunks}')
+    print(f'variant set: {variant_set}')
+    print(f'constant sex ratio: {constant_sex_ratio}')
     print('####################')
     
     #preprocess1(variant_set) #create variant table
     #preprocess2(variant_set) #filter variants
     #preprocess3(variant_set) #repartition
-#    get_phen_mt(variant_set,phen,batch,n_chunks,write=True)  #Only used to save HailTable of phens. Can skip this step and start with metasplit1, which uses this function to get the matrix table of phenotypes. Takes 2 min with 20 n1-standard-8 workers.
-    metasplit1(variant_set,phen,batch,n_chunks) #typically takes 40 n1-standard-8 workers about 5 hours
+#    get_phen_mt(variant_set,phen,batch,n_chunks,constant_sex_ratio,write=True)  #Only used to save HailTable of phens. Can skip this step and start with metasplit1, which uses this function to get the matrix table of phenotypes. Takes 2 min with 20 n1-standard-8 workers.
+    metasplit1(variant_set,phen,batch,n_chunks,constant_sex_ratio) #typically takes 40 n1-standard-8 workers about 5 hours
     #metasplit2(variant_set, phen,batch,n_chunks) #use meta_split_parallel.py to run in hard parallel across clusters
