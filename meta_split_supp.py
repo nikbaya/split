@@ -209,10 +209,11 @@ Create h2part file for rg calculation (aka "phenfile" in the rg ldsc file)
 
 import pandas as pd
 import os
-phen = '50_sim_inf'
+phen = '50'
 variant_set = 'hm3'
 batch = 1
 n_chunks = 300
+constant_sex_ratio=True
 
 phenotypes = pd.read_csv('/Users/nbaya/Documents/lab/ukbb-sexdiff/imputed-v3-results/phenotypes.both_sexes.tsv',sep='\t')
 heritable_phens = pd.read_csv('/Users/nbaya/Downloads/ukb_phenos_for_sex_rg.tsv',sep='\t')
@@ -222,9 +223,10 @@ heritable_phens = pd.read_csv('/Users/nbaya/Downloads/ukb_phenos_for_sex_rg.tsv'
 tb1 = pd.DataFrame(np.zeros(shape=[100,10]),columns=['phen','female_file','male_file','desc','female_n','male_n','female_n_cas','male_n_cas','female_n_con','male_n_con'])
 
 for row in range(100):
-    tb1.loc[row,'female_file'] = variant_set+'_'+phen+'_meta_A_n'+str(n_chunks)+'_batch_'+str(batch)+'_s'+str(row)+'.tsv.bgz'
-    tb1.loc[row,'male_file'] = variant_set+'_'+phen+'_meta_B_n'+str(n_chunks)+'_batch_'+str(batch)+'_s'+str(row)+'.tsv.bgz'
-    tb1.loc[:,'desc'] = variant_set+'_'+phen+'_s'+str(row)
+    
+    tb1.loc[row,'female_file'] = f'{variant_set}_{phen}_meta_A_n{n_chunks}_constantsexratio_{constant_sex_ratio}_batch_{batch}_s{row}.tsv.bgz' #variant_set+'_'+phen+'_meta_A_n'+str(n_chunks)+'_batch_'+str(batch)+'_s'+str(row)+'.tsv.bgz'
+    tb1.loc[row,'male_file'] =   f'{variant_set}_{phen}_meta_A_n{n_chunks}_constantsexratio_{constant_sex_ratio}_batch_{batch}_s{row}.tsv.bgz' #variant_set+'_'+phen+'_meta_B_n'+str(n_chunks)+'_batch_'+str(batch)+'_s'+str(row)+'.tsv.bgz'
+    tb1.loc[:,'desc'] = f'{variant_set}_{phen}_constantsexratio_{constant_sex_ratio}_s{row}'
     tb1.loc[row,'female_n'] = int(360338/2)
     tb1.loc[row,'male_n'] = int(360338/2)
     tb1.loc[row,'female_n_cas'] = float('NaN')
@@ -237,6 +239,44 @@ tb1.loc[:,'phen'] = variant_set+'_'+phen
 tb1 = tb1[['phen','female_file','male_file','desc','female_n','male_n','female_n_cas',
            'male_n_cas','female_n_con','male_n_con']]
 
+filename = f'{variant_set}.{phen}.h2part.nchunks{n_chunks}_constantsexratio_{constant_sex_ratio}_batch_{batch}.tsv'
+local_wd = '~/Documents/lab/ukbb-sexdiff/rg_sex/'
+cloud_wd = 'gs://nbaya/rg_sex/'
+tb1.to_csv(local_wd+filename, sep='\t',index=False)
+
+os.system('gsutil cp '+local_wd+filename+' '+cloud_wd)
+
+###############################################################################
+"""
+Create h2part file for rg calculation (aka "phenfile" in the rg ldsc file)
+"""
+
+import pandas as pd
+import os
+phen = '50'
+variant_set = 'hm3'
+batch = 1
+n_chunks = 2
+
+phenotypes = pd.read_csv('/Users/nbaya/Documents/lab/ukbb-sexdiff/imputed-v3-results/phenotypes.both_sexes.tsv',sep='\t')
+vals = phenotypes.loc[phenotypes['phenotype'] == str(phen)]
+tb1 = pd.concat([vals]*100).reset_index()
+tb1['index'] = range(1, len(tb1) + 1)
+tb1['phen'] = phen+'_gcta_50k'
+tb1['female_file'] = '20k_sumstats.y1.s'+tb1['index'].astype(str)+'.tsv.bgz'
+tb1['male_file'] = '20k_sumstats.y2.s'+tb1['index'].astype(str)+'.tsv.bgz'
+tb1['desc'] = 'height gwas on gcta split of 20k individuals'
+tb1['female_n_cas'] = float('NaN')
+tb1['male_n_cas'] = float('NaN')
+tb1['female_n_con'] = float('NaN')
+tb1['male_n_con'] = float('NaN')
+tb1['female_n'] = 10000
+tb1['male_n'] = 10000
+
+
+tb1 = tb1[['female_file','male_file','phen','desc','female_n','male_n','female_n_cas',
+           'male_n_cas','female_n_con','male_n_con']]
+phen = 'height_gcta_20k'
 filename = variant_set+'.'+phen+'.h2part.nchunks'+str(n_chunks)+'_batch_'+str(batch)+'.tsv'
 local_wd = '~/Documents/lab/ukbb-sexdiff/rg_sex/'
 cloud_wd = 'gs://nbaya/rg_sex/'
@@ -247,6 +287,7 @@ os.system('gsutil cp '+local_wd+filename+' '+cloud_wd)
 ###############################################################################
 """
 Create h2part file for rg calculation (aka "phenfile" in the rg ldsc file)
+Specifically for a set of heritable phenotypes
 """
 
 import pandas as pd
@@ -392,6 +433,9 @@ tb1.to_csv(local_wd+filename, sep='\t',index=False)
 os.system('gsutil cp '+local_wd+filename+' '+cloud_wd)
 
 
+
+
+
 ###############################################################################
 """
 ╔═════════════════╗
@@ -402,17 +446,27 @@ import os
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+import seaborn as sns
 
 # possible phenotypes: 50 (irnt), 20160, 50 (n_chunks = 150), 50_raw, 30100, 2443, 23107, 6138_100
-no_intercept = True
-no_gcov_int = False
-all_filenames = ['ukbb31063.rg_sex.50.batch_1.tsv.gz', 'ukbb31063.rg_sex.20160.batch_1.tsv.gz',
-             'ukbb31063.rg_sex.50.n150_batch_1.tsv.gz','ukbb31063.rg_sex.50_raw.batch_1.tsv.gz',
-             'ukbb31063.rg_sex.30100.batch_1.tsv.gz', 'ukbb31063.rg_sex.2443.batch_1.tsv.gz',
-             'ukbb31063.rg_sex.23107.batch_1.tsv.gz', 'ukbb31063.rg_sex.6138_100.batch_1.tsv.gz',
-             'ukbb31063.rg_sex.hm3.50_sim_inf.nchunks300.batch_1'+('.no_intercept' if no_intercept else '')+('.int_gcov_0' if no_gcov_int else '')+'.tsv.gz', 'ukbb31063.rg_sex.50_sim_inf.n150.batch_1.tsv.gz',
-             'ukbb31063.rg_sex.50_sim_inf_h2_0.1.n300.batch_1.tsv.gz','ukbb31063.rg_sex.50_raw_res.n300.batch_1.tsv.gz',
-             'ukbb31063.rg_sex.qc_pos.50_sim_inf.n300.batch_1.tsv.gz','gcta_20k.rg.tsv.bgz']
+all_filenames = ['ukbb31063.rg_sex.50.batch_1.tsv.gz',
+#                 'ukbb31063.rg_sex.hm3.50.nchunks300.batch_1.constr_gcov_int.tsv.gz',
+#                 'ukbb31063.rg_sex.hm3.50.nchunks300.batch_1.constr_h2_int.constr_gcov_int.tsv.gz',
+                 'ukbb31063.rg_sex.hm3.50.nchunks300.constantsexratio_True.batch_1.tsv.gz',
+#                 'ukbb31063.rg_sex.20160.batch_1.tsv.gz',
+#                 'ukbb31063.rg_sex.50.n150_batch_1.tsv.gz','ukbb31063.rg_sex.50_raw.batch_1.tsv.gz',
+#                 'ukbb31063.rg_sex.30100.batch_1.tsv.gz', 'ukbb31063.rg_sex.2443.batch_1.tsv.gz',
+#                 'ukbb31063.rg_sex.23107.batch_1.tsv.gz', 'ukbb31063.rg_sex.6138_100.batch_1.tsv.gz',
+#                 'ukbb31063.rg_sex.hm3.50_sim_inf.nchunks300.batch_1.tsv.gz',
+#             'ukbb31063.rg_sex.hm3.50_sim_inf.nchunks300.batch_1.constr_h2_int.tsv.gz',
+    #             'ukbb31063.rg_sex.hm3.50_sim_inf.nchunks300.batch_1.no_intercept.tsv.gz',
+#             'ukbb31063.rg_sex.hm3.50_sim_inf.nchunks300.batch_1.constr_gcov_int.tsv.gz',
+#             'ukbb31063.rg_sex.hm3.50_sim_inf.nchunks300.batch_1.constr_h2_int.constr_gcov_int.tsv.gz',
+#             'ukbb31063.rg_sex.50_sim_inf.n150.batch_1.tsv.gz',
+#             'ukbb31063.rg_sex.50_sim_inf_h2_0.1.n300.batch_1.tsv.gz','ukbb31063.rg_sex.50_raw_res.n300.batch_1.tsv.gz',
+#             'ukbb31063.rg_sex.qc_pos.50_sim_inf.n300.batch_1.tsv.gz','gcta_20k.rg.tsv.bgz',
+             #'ukbb31063.rg_sex.hm3.height_gcta_20k.tsv.gz'
+             ]
 #origpheno_filenames = ['ukbb31063.rg_sex.50.batch_1.tsv.gz', 'ukbb31063.rg_sex.20160.batch_1.tsv.gz',
 #             'ukbb31063.rg_sex.30100.batch_1.tsv.gz', 'ukbb31063.rg_sex.2443.batch_1.tsv.gz',
 #             'ukbb31063.rg_sex.23107.batch_1.tsv.gz', 'ukbb31063.rg_sex.6138_100.batch_1.tsv.gz']
@@ -425,7 +479,7 @@ for filename in filenames:
         os.system('gsutil cp '+cloud_wd+filename+' '+wd)
 rg_df =  pd.read_csv(wd+filenames[0],sep='\t',compression='gzip').sort_values(by='p1').reset_index(drop=True)
 for i in range(1,len(filenames)):
-    if '20k' in filenames[i]:
+    if filenames[i] == 'gcta_20k.rg.tsv.bgz':
         temp = pd.read_csv(wd+filenames[i],sep='\t',compression='gzip').rename(
                 index=str,columns={'rg_SE':'se','rep_id':'phenotype','n':'ph1_n'}).reset_index(drop=True)
         temp['p1'] = 'gcta_20k_'+temp['phenotype'].astype(str)+'A'
@@ -438,8 +492,10 @@ for i in range(1,len(filenames)):
     rg_df = rg_df.append(temp)
 rg_df.loc[:,'z_not_1'] = (rg_df.loc[:,'rg']-1)/rg_df.loc[:,'se']
 
-phen_ids = {#'20160':'20160',
-            '50_meta_A_batch':'50_irnt',
+phen_ids = {#'20160':'Ever Smoked',
+            '50_meta_A_batch':'Standing Height',
+#            '50_meta_A_n300_batch':'Standing Height\n(constr. gcov int.)',
+             'hm3_50_meta_A_n300_constantsexratio_True': 'Standing Height\n(constant sex ratio)'
 #            '50_meta_A_n150':'50 n150',
 #            '50_raw_meta':'50_raw',
 #            '30100':'30100',
@@ -447,12 +503,13 @@ phen_ids = {#'20160':'20160',
 #            '23107':'23107',
 #            '6138_100':'6138_100',
 #            'meta':'All phens',
-            'hm3_50_sim_inf_meta_A_n300':'Inf. model, n300',
+#            'hm3_50_sim_inf_meta_A_n300':'Simulation' #Inf. model, n300',
 #            '50_sim_inf_meta_A_n150':'Inf. model, n150',
 #            'inf_h2_0.1':'Inf. model, h2=0.1',
 #            '50_raw_res':'50_raw_res',
 #            'qc_pos_50':'Inf. model with QC variants',
-            'gcta_20k':'gcta_20k'
+#            'gcta_20k':'height GCTA 20k',
+#            '20k_sumstats':'height LDSC 20k'
             }
 
 phen_ids_labels = {'20160':'20160',
@@ -502,21 +559,33 @@ fig.set_size_inches(6, 4)
 
 ###### Code for generating kde plots for all selected phenotypes ######
 col='rg'
-for phen_id, desc in phen_ids.items():
-#    print(rg_df[(rg_df.p1.str.contains(phen_id))][col].shape)
-    print(rg_df[(rg_df.description.str.contains(desc))][col].shape)
-#    sns.kdeplot(rg_df[rg_df.p1.str.contains(phen_id)][col])
-    sns.kdeplot(rg_df[rg_df.description.str.contains(desc)][col])
-#    plt.hist(rg_df[rg_df.p1.str.contains(phen_id)][col],alpha=0.5)
 
-plt.legend([value for key, value in phen_ids_labels.items()])
-plt.title(col+' distributions')
+i = 0
+col_ls = plt.rcParams['axes.prop_cycle'].by_key()['color']
+for phen_id, desc in phen_ids.items():
+#    print(phen_id)
+#    print(rg_df[(rg_df.p1.str.contains(phen_id))][col].shape)
+#    print(np.mean(rg_df[(rg_df.p1.str.contains(phen_id))][col]))
+#    print(stats.ttest_1samp(rg_df[(rg_df.p1.str.contains(phen_id))][col],popmean=1)[1])
+#    sns.kdeplot(rg_df[rg_df.p1.str.contains(phen_id)][col])#,color=col_ls[1])
+#    i += 1
+#    sns.kdeplot(rg_df[rg_df.description.str.contains(desc)][col])
+#i=0
+#for phen_id, desc in phen_ids.items():    
+    plt.hist(rg_df[rg_df.p1.str.contains(phen_id)][col],20,alpha=0.5,color=col_ls[i])
+    i += 1
+
+plt.legend([value for key, value in phen_ids.items()])
+plt.title(col+' distribution')
 plt.xlabel(col)
 plt.ylabel('density')
-plt.ylim([0,90])
+#plt.yscale('log')
+#plt.ylim([1e-2,5e5])
+#plt.ylim([0,90])
+#plt.xlim([0.96,1.04])
 fig = plt.gcf()
-fig.set_size_inches(6*1.2, 4*1.2)
-fig.savefig('/Users/nbaya/Desktop/50_sim_phens_'+col+'.png',dpi=600)
+fig.set_size_inches(6, 4)
+fig.savefig('/Users/nbaya/Documents/lab/ukbb-sexdiff/rg_sex/plots/50_constantsexratio.png',dpi=600)
 
 col='h2_int'
 col1='ph1_'+col
@@ -536,6 +605,11 @@ plt.ylabel('density')
 fig = plt.gcf()
 fig.set_size_inches(6, 4)
 fig.savefig('/Users/nbaya/Desktop/50_'+col+'.png',dpi=300)
+
+sns.kdeplot(rg_df.rg)
+plt.xlim([0.99,1.01])
+stats.ttest_1samp(rg_df.rg,1).pvalue
+np.mean(rg_df.rg)
 
 
 sns.kdeplot(rg_df[rg_df.p1.str.contains('50_meta_A_batch')]['rg'],color='#ff7f0e',linestyle='-')
@@ -562,7 +636,7 @@ col='rg'
 for phen_id, desc in phen_ids.items():
     print(desc+' Mean: '+str(np.mean(rg_df[rg_df.p1.str.contains(phen_id)][col])))
     print(desc+' Std: '+str(np.std(rg_df[rg_df.p1.str.contains(phen_id)][col])))
-    print(desc+' t-test 1samp=1 pvalue: '+str(stats.ttest_1samp(rg_df[rg_df.p1.str.contains(phen_id)][col],1).pvalue/2))
+    print(desc+' t-test 1samp=1 pvalue: '+str(stats.ttest_1samp(rg_df[rg_df.p1.str.contains(phen_id)][col],1).pvalue))
     print('\r')
 #    print(desc+' pearson r: '+str(stats.pearsonr(rg_df[rg_df.p1.str.contains(phen_id)]['rg'],rg_df[rg_df.p1.str.contains(phen_id)]['gcov_int'])))
 
@@ -599,7 +673,7 @@ plt.ylabel('se')
 plt.xlabel('rg')
 plt.title('rg vs rg_se')
 fig.set_size_inches(8,6)
-fig.savefig('/Users/nbaya/Documents/lab/ukbb-sexdiff/rg_sex/plots/rg_vs_rg_se_realphens.png',dpi=600)
+fig.savefig('/Users/nbaya/Documents/lab/ukbb-sexdiff/rg_sex/plots/rg_vs_rg_se_gcta_ldsc.png',dpi=600)
     
 ###### plot rg's w/ error bars ####
 rg_df_temp = rg_df
@@ -609,20 +683,20 @@ for phen_id, desc in phen_ids.items():
 rg_df_temp = rg_df_temp[rg_df_temp.is_used==True]
 rg_df_temp = rg_df_temp.reset_index()
 fig,ax = plt.subplots(figsize=(12,12))
-#ax.plot([1,1],[0,rg_df_temp.shape[0]],'k--',alpha=0.5)
-ax.plot([0,0],[0,rg_df_temp.shape[0]],'k--',alpha=0.5)
+ax.plot([1,1],[0,rg_df_temp.shape[0]],'k--',alpha=0.5)
+#ax.plot([0,0],[0,rg_df_temp.shape[0]],'k--',alpha=0.5)
 for phen_id, desc in phen_ids.items():
     df_temp = rg_df_temp[rg_df_temp.p1.str.contains(phen_id)]
-#    df_temp = df_temp.sort_values(by='rg')
-    df_temp = df_temp.sort_values(by='z_not_1')
+    df_temp = df_temp.sort_values(by='rg')
+#    df_temp = df_temp.sort_values(by='z_not_1')
     min_idx = np.min(df_temp.index.values)
     df_temp = df_temp.reset_index()
-#    ax.errorbar(df_temp.rg,df_temp.index+min_idx,xerr=2*df_temp.se,fmt='.')
-    ax.errorbar(df_temp.z_not_1,df_temp.index+min_idx,xerr=2,fmt='.')
-#ax.legend(['rg=1']+[value for key, value in phen_ids.items()])
-ax.legend(['rg=1 (z_not_1=0)']+[value for key, value in phen_ids.items()])
+    ax.errorbar(df_temp.rg,df_temp.index+min_idx,xerr=2*df_temp.se,fmt='.')
+#    ax.errorbar(df_temp.z_not_1,df_temp.index+min_idx,xerr=2,fmt='.')
+ax.legend(['rg=1']+[value for key, value in phen_ids.items()])
+#ax.legend(['rg=1 (z_not_1=0)']+[value for key, value in phen_ids.items()])
 plt.xlabel('rg estimate')
-plt.xlabel('z_not_1')
+#plt.xlabel('z_not_1')
 plt.ylabel('replicates')
 #plt.xlim([0.9,1.1])
 plt.tick_params(
@@ -632,11 +706,46 @@ plt.tick_params(
     right=False,         # ticks along the top edge are off
     labelleft=False) # labels along the bottom edge are off
 plt.title('rg estimate')
-plt.title('z_not_1')
+#plt.title('z_not_1')
 #plt.tight_layout()
 fig = plt.gcf()
-#fig.set_size_inches(12,9)
-fig.savefig('/Users/nbaya/Documents/lab/ukbb-sexdiff/rg_sex/plots/test.png',dpi=400)
+fig.set_size_inches(8,8)
+fig.savefig('/Users/nbaya/Documents/lab/ukbb-sexdiff/rg_sex/plots/gcta_vs_ldsc_rg_estimates.png',dpi=400)
+
+###### plot gcta vs. ldsc rg ######
+gcta = rg_df_temp[rg_df_temp.description == 'gcta_20k']
+ldsc = rg_df_temp[rg_df_temp.description == 'height 20k']
+gcta['id'] = gcta.p1.apply(lambda x: x.split('_')[2].strip('A'))
+ldsc['id'] = ldsc.p1.apply(lambda x: x.split('.')[2].strip('s'))
+gcta = gcta.sort_values(by='id')
+ldsc = ldsc.sort_values(by='id')
+
+
+
+
+print(f'\ncorr: {stats.pearsonr(gcta.se,ldsc.se)[0]}')
+print(f'\ncorr p-val: {stats.pearsonr(gcta.se,ldsc.se)[1]}')
+print(f'p-val: {stats.ttest_1samp(rg_temp,popmean=1)[1]}\n')
+
+fig,ax = plt.subplots(figsize=(8,6))
+ax.errorbar(x=gcta.rg,y=ldsc.rg,xerr=2*gcta.se,yerr=2*ldsc.se,fmt='.',alpha=0.5)
+plt.xlabel('GCTA rg estimates')
+plt.ylabel('LDSC rg estimates')
+plt.title('GCTA vs. LDSC rg estimates for the same splits')
+fig.savefig('/Users/nbaya/Documents/lab/ukbb-sexdiff/rg_sex/plots/gcta_vs_ldsc_rg_bivar_errorbars.png',dpi=400)
+
+
+fig,ax = plt.subplots(figsize=(8,6))
+sns.kdeplot(gcta.rg,ldsc.rg,ax=ax,n_levels=10,shade=True)
+ax.plot(gcta.rg,ldsc.rg,'k.')
+plt.xlabel('GCTA rg estimates')
+plt.ylabel('LDSC rg estimates')
+plt.title('GCTA vs. LDSC rg estimates for the same splits')
+fig = plt.gcf()
+fig.savefig('/Users/nbaya/Documents/lab/ukbb-sexdiff/rg_sex/plots/gcta_vs_ldsc_rg_bivar_kde.png',dpi=400)
+
+fig,ax = plt.subplots(figsize=(8,6))
+ax.plot(gcta.rg,ldsc.rg,'.')
 
 ################################################################################
 '''
@@ -1847,11 +1956,12 @@ phendict = {       '50':['50',               300, True,  True,  True, float('NaN
                '50_raw':['50_raw',           300, False, False, False, float('NaN')],
                 '30100':['30100',            300, False, False, True, float('NaN')],
               '50_n150':['50',               150, False, True,  True, float('NaN')],
-           '50_sim_inf':['50_sim_inf',       300, False, False, True, float('NaN')],
+           '50_sim_inf':['50_sim_inf',       300, False, False, True, True],
       '50_sim_inf_n150':['50_sim_inf',       150, False, False, True, float('NaN')],
     '50_sim_inf_h2_0.1':['50_sim_inf_h2_0.1',300, False, False, True, True],
        '50_nestedFalse':['50',               300, False, False, True, False],
-           '50_raw_res':['50_raw_res',       300, False, False, False, True]
+           '50_raw_res':['50_raw_res',       300, False, False, False, True],
+'50_sim_inf_constrained_int':['50_sim_inf_constrained_int', 300, False, False, True, True]
        }
 
 def geth2batches(phenkey, phendict):
@@ -1943,7 +2053,7 @@ def ploth2upsampling(phenkey, phendict, plotlastset, uselastsetref, saveplot):
     isnested = phendict[phenkey][5]
     
     #Get h2 reference and n_batches
-    h2 = pd.read_csv('/Users/nbaya/Documents/lab/ukbb-sexdiff/rg_sex/ukbb31063.both_sexes.h2part_results.phesant.tsv.gz', 
+    h2 = pd.read_csv('/Users/nbaya/Documents/lab/ukbb-sexdiff/h2part/ukbb31063.both_sexes.h2part_results.v2.phesant.tsv.gz', 
                                       sep='\t',compression='gzip').rename(index=str,columns={'phenotype':'phen'}).iloc[:,0:20]
     if uselastsetref:
         if haslastset:
@@ -1954,7 +2064,7 @@ def ploth2upsampling(phenkey, phendict, plotlastset, uselastsetref, saveplot):
             uselastsetref = False
     if not uselastsetref: #use another if instead of else to include phenotypes that had uselastsetref set to false in the previous 'if' block
         if isirnt: #if the phenotype is irnt
-            if phen == '50_sim_inf':
+            if phen == '50_sim_inf' or '50_sim_inf_constrained_int':
                 h2_ref = h2[h2['phen']=='50_irnt'].h2_observed[0] # full data ref
             elif phen == '50_sim_inf_h2_0.1':
                 h2_ref = 0.1
@@ -2001,7 +2111,7 @@ def ploth2upsampling(phenkey, phendict, plotlastset, uselastsetref, saveplot):
     plt.text(88.5e3,(h2_ref-ylim_param*0.8),'n = 100k')
     if isirnt: #if the phenotype is irnt
         if 'sim' in phen: 
-            plt.title('Combined h2_observed of '+phen+' (sim h2='+str(h2_ref)+')\n('+str(n_batches)+' batches, n chunks = '+str(n_chunks)+', nested ='+str(isnested)+')')
+            plt.title('Combined h2_observed of '+phen+' (sim h2=%f' % h2_ref +')\n('+str(n_batches)+' batches, n chunks = '+str(n_chunks)+', nested ='+str(isnested)+')')
         else:
             plt.title('Combined h2_observed of '+phen+' ('+str(h2[h2['phen']==phen+'_irnt'].description[0])+')\n('+str(n_batches)+' batches, n chunks = '+str(n_chunks)+', nested ='+str(isnested)+')')
     else:
@@ -2020,5 +2130,5 @@ def ploth2upsampling(phenkey, phendict, plotlastset, uselastsetref, saveplot):
         else:
             fig.savefig(wd+'plots/'+'upsampling_'+phen+'_n'+str(n_chunks)+'_nested'+str(isnested)+'_h2_observed_'+str(n_batches)+'batches_combined.png',dpi=300)
 
-h2_phen = geth2batches('50_raw_res',phendict)
-ploth2upsampling('50_raw_res',phendict,plotlastset=False,uselastsetref=False,saveplot=False)
+h2_phen = geth2batches('50_sim_inf',phendict)
+ploth2upsampling('50_sim_inf_constrained_int',phendict,plotlastset=False,uselastsetref=False,saveplot=True)
