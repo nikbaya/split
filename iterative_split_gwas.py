@@ -165,7 +165,8 @@ for phen_i in idx_ls:
         ht_A = ht_A.select(Z = ht_A.beta/ht_A.standard_error)
         ht_B = ht_B.select(Z = ht_B.beta/ht_B.standard_error)
         
-        sumstats_template = hl.import_table('gs://nbaya/rg_sex/50_snps_alleles_N.tsv.gz',types={'N': hl.tint64})
+#        sumstats_template = hl.import_table('gs://nbaya/rg_sex/50_snps_alleles_N.tsv.gz',types={'N': hl.tint64})
+        sumstats_template = hl.read_table('gs://nbaya/rg_sex/hm3.sumstats_template.ht/')
         sumstats_template = sumstats_template.key_by('SNP')
         sumstats_template = sumstats_template.annotate(N = int(n_samples/2))
 #            sumstats_template.show()
@@ -217,7 +218,8 @@ for phen_i in idx_ls:
             ht_A = ht_A.select(Z = ht_A.beta/ht_A.standard_error)
             ht_B = ht_B.select(Z = ht_B.beta/ht_B.standard_error)
             
-            sumstats_template = hl.import_table('gs://nbaya/rg_sex/50_snps_alleles_N.tsv.gz',types={'N': hl.tint64})
+#            sumstats_template = hl.import_table('gs://nbaya/rg_sex/50_snps_alleles_N.tsv.gz',types={'N': hl.tint64})
+            sumstats = hl.read_table('gs://nbaya/rg_sex/hm3.sumstats_template.ht/')
             sumstats_template = sumstats_template.key_by('SNP')
             sumstats_template = sumstats_template.annotate(N = int(n_samples/2))
             sumstats_template.show()
